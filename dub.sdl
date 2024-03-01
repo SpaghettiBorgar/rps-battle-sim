@@ -1,0 +1,6 @@
+name "sdl_template"
+description "A minimal D application."
+authors "."
+copyright "."
+license "."
+dependency "bindbc-sdl" version="~>1.0.1"
