@@ -151,21 +151,20 @@ void init()
 
 void tick()
 {
-	import std.numeric : euclideanDistance;
-	import std.math;
 	import std.algorithm : min, max, clamp;
 
 	real gravity(Point p1, Point p2)
 	{
-		return 16 / max(1, pow((p1.distance(p2)) / 4, 2));
+		return 2 / pow(max(4, p1.distance(p2)) / 4, 2);
 	}
 
 	foreach(ref p; particles)
 	{
 		Point f = Point(0, 0);
-		// f.movePolar(uniform01() * 2 * PI, 1);
-		// fx -= gravity(0, p.x) + gravity(600, p.x);
-		// fy -= gravity(0, p.y) + gravity(600, p.y);
+		f.movePolar(uniform01() * 2 * PI, uniform01() * 0.4);
+		f.x += 8 / pow(p.pos.x / 4, 2) - 8 / pow((windowW - p.pos.x) / 4, 2);
+		f.y += 8 / pow(p.pos.y / 4, 2) - 8 / pow((windowH - p.pos.y) / 4, 2);
+		// f.y -= gravity(0, p.y) + gravity(600, p.y);
 		Particle* nearest;
 		real nearest_dist;
 		foreach(ref p2; particles)
@@ -189,10 +188,12 @@ void tick()
 				p.type = nearest.type;
 			}
 		}
-		// p.x = clamp(p.x + fx, 0, 600);
-		// p.y = clamp(p.y + fy, 0, 600);
 		// p.pos.movePolar(5, 1);
-		p.vel = p.vel * 0.9 + f;
+		// f.movePolar(f.angle(Point(0,0)), 0.1);
+		// f.rotate(1);
+		p.vel += f * 0.9;
+		p.vel *= 0.9;
+		// p.vel.rotate(0.1);
 		p.pos += p.vel;
 	}
 }
