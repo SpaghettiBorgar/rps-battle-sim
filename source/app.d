@@ -24,6 +24,13 @@ enum RPS
 	SCISSORS
 }
 
+real normdist(T)(T x, const real s = 1, const T m = 0) pure
+{
+	const real mult = 1 / (s * sqrt(2 * PI));
+	real p = (x-m)/s;
+	return mult * exp((p * p) / -2);
+}
+
 struct Point
 {
 	real x;
@@ -276,6 +283,18 @@ void draw()
 	sdlr.SDL_RenderCopy(scissors_tex, null, new SDL_Rect(4 + 20 * 2, windowH - 20, 16, 16));
 	sdlr.SDL_SetRenderDrawColor(255, 0, 0, 255);
 	sdlr.SDL_RenderFillRect(new SDL_Rect(4 + 20 * 2, windowH - 22 - nscissors, 16, nscissors));
+
+	real[3] s;
+	for(int x = 0; x < windowW / 8; x++) {
+		for(int y = 0; y < windowH / 8; y++) {
+			s = [0, 0, 0];
+			foreach(p; particles) {
+				s[p.type] += 5 * 255 * normdist!real(p.pos.distance(Point(x * 8, y * 8)).to!int, 100);
+			}
+			sdlr.SDL_SetRenderDrawColor(s[0].to!ubyte, s[1].to!ubyte, s[2].to!ubyte, 255);
+			sdlr.SDL_RenderDrawPoint(x + 62, windowH - windowH / 8 - 0 + y);
+		}
+	}
 
 	sdlr.SDL_RenderPresent();
 }
