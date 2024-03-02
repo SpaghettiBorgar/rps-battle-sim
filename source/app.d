@@ -5,6 +5,7 @@ import std.string;
 import std.random;
 import std.conv;
 import std.math;
+import std.datetime.stopwatch;
 
 /// Exception for SDL related issues
 class SDLException : Exception
@@ -122,12 +123,18 @@ void main()
 
 	init();
 
+	auto sw = StopWatch(AutoStart.yes);
 	running = true;
 	while (running)
 	{
+		sw.reset();
 		pollEvents();
 		tick();
+		long tick_msecs = sw.peek.total!"msecs";
+		sw.reset();
 		draw();
+		long draw_msecs = sw.peek.total!"msecs";
+		writefln!"tick %d msecs, draw %d msecs"(tick_msecs, draw_msecs);
 	}
 }
 
@@ -160,15 +167,21 @@ void tick()
 		// fx -= gravity(0, p.x) + gravity(600, p.x);
 		// fy -= gravity(0, p.y) + gravity(600, p.y);
 		Particle* nearest;
+		real nearest_dist;
 		foreach(ref p2; particles)
 		{
 			if (p == p2)
 				continue;
-			if(nearest is null || p.pos.distance(p2.pos) < p.pos.distance(nearest.pos))
+			real dist = p.pos.distance(p2.pos);
+			if(nearest is null || dist < nearest_dist) 
+			{
 				nearest = &p2;
-				// fx += gravity(p.x, p2.x) * (p.type == p2.type ? 1 : -0.5);
-				// fy += gravity(p.y, p2.y) * (p.type == p2.type ? 1 : -0.5);
-				f.movePolar(p.pos.angleTo(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -1 : 0.5));
+				nearest_dist = dist;
+			}
+			// fx += gravity(p.x, p2.x) * (p.type == p2.type ? 1 : -0.5);
+			// fy += gravity(p.y, p2.y) * (p.type == p2.type ? 1 : -0.5);
+			// if(dist <= 300)
+				f.movePolar(p.pos.angleTo(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -0.9 : 1));
 		}
 		if(p.pos.distance(nearest.pos) <= 8)
 		{
