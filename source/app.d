@@ -29,22 +29,32 @@ struct Point
 	real x;
 	real y;
 
-	real angleTo(Point p2)
+	real angle(Point p2 = Point(0, 0)) pure const
 	{
+		// return atan2(p2.x - this.x, (p2.y - this.y));
 		return atan2(-(p2.y - this.y), p2.x - this.x);
 	}
 
-	real distance(Point p2)
+	real distance(Point p2 = Point(0, 0)) pure const
 	{
 		import std.numeric : euclideanDistance;
 
-		return euclideanDistance([this.x, this.y], [p2.x, p2.y]);
+		// return euclideanDistance([this.x, this.y], [p2.x, p2.y]);
+		auto dx = p2.x - this.x;
+		auto dy = p2.y - this.y;
+		return sqrt(dx * dx + dy * dy);
 	}
 
 	void movePolar(real angle, real distance)
 	{
 		this.x += cos(angle) * distance;
 		this.y -= sin(angle) * distance;
+	}
+
+	void rotate(real angle)
+	{
+		this.x = cos(angle) * this.x - sin(angle) * this.y;
+		this.y = sin(angle) * this.x + cos(angle) * this.y;
 	}
 
 	auto opBinary(string op)(const Point rhs) const
@@ -162,7 +172,7 @@ void init()
 	auto rnd = MinstdRand0();
 
 	particles = [];
-	foreach(i; 0..100)
+	foreach(i; 0..250)
 	{
 		particles ~= Particle(rnd.uniform!RPS, Point(uniform01() * windowW, uniform01() * windowH), Point(0, 0), Point(0, 0));
 	}
@@ -199,7 +209,7 @@ void tick()
 			// fx += gravity(p.x, p2.x) * (p.type == p2.type ? 1 : -0.5);
 			// fy += gravity(p.y, p2.y) * (p.type == p2.type ? 1 : -0.5);
 			// if(dist <= 300)
-				f.movePolar(p.pos.angleTo(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -0.9 : 1));
+				f.movePolar(p.pos.angle(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -0.9 : 1));
 		}
 		if(p.pos.distance(nearest.pos) <= 16)
 		{
@@ -253,9 +263,19 @@ void draw()
 				assert(0);
 		}
 		// sdlr.SDL_RenderFillRectF(new SDL_FRect(p.pos.x - 4, p.pos.y - 4, 8, 8));
-		sdlr.SDL_RenderCopyExF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16), p.vel_smooth.angleTo(Point(-1, 0)) * 180 / PI, null, 0);
+		sdlr.SDL_RenderCopyExF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16), p.vel_smooth.angle(Point(-1, 0)) * 180 / PI, null, 0);
 		// sdlr.SDL_RenderCopyF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16));
+		// sdlr.SDL_BlitSurface(surf, null, new SDL_Rect(p.pos.x.to!int - 4, p.pos.y.to!int - 4, 8, 8));
 	}
+	sdlr.SDL_RenderCopy(rock_tex, null, new SDL_Rect(4 + 20 * 0, windowH - 20, 16, 16));
+	sdlr.SDL_SetRenderDrawColor(0, 0, 255, 255);
+	sdlr.SDL_RenderFillRect(new SDL_Rect(4 + 20 * 0, windowH - 22 - nrock, 16, nrock));
+	sdlr.SDL_RenderCopy(paper_tex, null, new SDL_Rect(4 + 20 * 1, windowH - 20, 16, 16));
+	sdlr.SDL_SetRenderDrawColor(0, 255, 0, 255);
+	sdlr.SDL_RenderFillRect(new SDL_Rect(4 + 20 * 1, windowH - 22 - npaper, 16, npaper));
+	sdlr.SDL_RenderCopy(scissors_tex, null, new SDL_Rect(4 + 20 * 2, windowH - 20, 16, 16));
+	sdlr.SDL_SetRenderDrawColor(255, 0, 0, 255);
+	sdlr.SDL_RenderFillRect(new SDL_Rect(4 + 20 * 2, windowH - 22 - nscissors, 16, nscissors));
 
 	sdlr.SDL_RenderPresent();
 }
