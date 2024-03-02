@@ -89,37 +89,55 @@ int mouseY;
 bool mouseL;
 bool mouseM;
 bool mouseR;
-Uint8* keystates;
-Uint16 keymods;
+ubyte* keystates;
+ushort keymods;
 Particle[] particles;
+
+SDL_Texture* rock_tex;
+SDL_Texture* paper_tex;
+SDL_Texture* scissors_tex;
 
 void main()
 {
 	version(DMD)
 	registerMemoryErrorHandler();
 
-	writeln(sdlSupport);
+	// writeln(sdlSupport);
 
 	if (loadSDL() != sdlSupport)
 		writeln("Error loading SDL library");
 
+	if (loadSDLImage() < sdlImageSupport)
+		writeln("Error loading SDL Image library");
+
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+		throw new SDLException();
+
+	if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG)
 		throw new SDLException();
 
 	scope (exit)
 		SDL_Quit();
 
-	windowW = 600;
-	windowH = 600;
+	windowW = 1200;
+	windowH = 900;
 	auto window = SDL_CreateWindow("SDL Application", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-		windowW, windowH, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+		windowW, windowH, SDL_WINDOW_SHOWN);
 	if (!window)
 		throw new SDLException();
 
 	sdlr = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
 
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+	// SDL_SetHint(SDL_HINT_RENDER_LINE_METHOD, "2");
 	SDL_SetRenderDrawBlendMode(sdlr, SDL_BLENDMODE_BLEND);
+
+	rock_tex = SDL_CreateTextureFromSurface(sdlr, IMG_Load("./rock.png"));
+	paper_tex = SDL_CreateTextureFromSurface(sdlr, IMG_Load("./paper.png"));
+	scissors_tex = SDL_CreateTextureFromSurface(sdlr, IMG_Load("./scissors.png"));
+	if(rock_tex is null || paper_tex is null || scissors_tex is null) {
+		throw new SDLException();
+	}
 
 	init();
 
@@ -203,23 +221,36 @@ void draw()
 	sdlr.SDL_SetRenderDrawColor(0, 0, 0, 255);
 	sdlr.SDL_RenderClear();
 
+	int nrock = 0;
+	int npaper = 0;
+	int nscissors = 0;
+
 	foreach(p; particles)
 	{
+		SDL_Texture* tex;
 		switch(p.type)
 		{
 			case RPS.ROCK:
+				tex = rock_tex;
 				sdlr.SDL_SetRenderDrawColor(0, 0, 255, 200);
+				nrock++;
 				break;
 			case RPS.PAPER:
+				tex = paper_tex;
 				sdlr.SDL_SetRenderDrawColor(0, 255, 0, 200);
+				npaper++;
 				break;
 			case RPS.SCISSORS:
+				tex = scissors_tex;
 				sdlr.SDL_SetRenderDrawColor(255, 0, 0, 200);
+				nscissors++;
 				break;
 			default:
 				assert(0);
 		}
-		sdlr.SDL_RenderFillRect(new SDL_Rect(p.pos.x.to!int - 4, p.pos.y.to!int - 4, 8, 8));
+		// sdlr.SDL_RenderFillRectF(new SDL_FRect(p.pos.x - 4, p.pos.y - 4, 8, 8));
+		sdlr.SDL_RenderCopyF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16));
+		// sdlr.SDL_RenderCopyF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16));
 	}
 
 	sdlr.SDL_RenderPresent();
