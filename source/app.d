@@ -30,7 +30,7 @@ struct Point
 
 	real angleTo(Point p2)
 	{
-		return atan2(p2.x - this.x, p2.y - this.y);
+		return atan2(-(p2.y - this.y), p2.x - this.x);
 	}
 
 	real distance(Point p2)
@@ -76,6 +76,7 @@ struct Particle
 {
 	RPS type;
 	Point pos;
+	Point vel = Point(0, 0);
 }
 
 SDL_Renderer* sdlr;
@@ -149,7 +150,7 @@ void tick()
 
 	real gravity(Point p1, Point p2)
 	{
-		return 16 / max(0, pow((p1.distance(p2)) / 4, 2));
+		return 16 / max(1, pow((p1.distance(p2)) / 4, 2));
 	}
 
 	foreach(ref p; particles)
@@ -167,7 +168,7 @@ void tick()
 				nearest = &p2;
 				// fx += gravity(p.x, p2.x) * (p.type == p2.type ? 1 : -0.5);
 				// fy += gravity(p.y, p2.y) * (p.type == p2.type ? 1 : -0.5);
-				f.movePolar(p.pos.angleTo(p2.pos), gravity(p.pos, p2.pos));
+				f.movePolar(p.pos.angleTo(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -1 : 0.5));
 		}
 		if(p.pos.distance(nearest.pos) <= 8)
 		{
@@ -178,7 +179,8 @@ void tick()
 		// p.x = clamp(p.x + fx, 0, 600);
 		// p.y = clamp(p.y + fy, 0, 600);
 		// p.pos.movePolar(5, 1);
-		p.pos += f;
+		p.vel = p.vel * 0.9 + f;
+		p.pos += p.vel;
 	}
 }
 
