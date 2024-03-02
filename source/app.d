@@ -78,6 +78,7 @@ struct Particle
 	RPS type;
 	Point pos;
 	Point vel = Point(0, 0);
+	Point vel_smooth = Point(0, 0);
 }
 
 SDL_Renderer* sdlr;
@@ -163,7 +164,7 @@ void init()
 	particles = [];
 	foreach(i; 0..100)
 	{
-		particles ~= Particle(rnd.uniform!RPS, Point(uniform01() * windowW, uniform01() * windowH));
+		particles ~= Particle(rnd.uniform!RPS, Point(uniform01() * windowW, uniform01() * windowH), Point(0, 0), Point(0, 0));
 	}
 }
 
@@ -200,7 +201,7 @@ void tick()
 			// if(dist <= 300)
 				f.movePolar(p.pos.angleTo(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -0.9 : 1));
 		}
-		if(p.pos.distance(nearest.pos) <= 8)
+		if(p.pos.distance(nearest.pos) <= 16)
 		{
 			if ((nearest.type + 3 - p.type) % 3 == 1) {
 				p.type = nearest.type;
@@ -213,6 +214,9 @@ void tick()
 		p.vel *= 0.9;
 		// p.vel.rotate(0.1);
 		p.pos += p.vel;
+		p.pos.x = clamp(p.pos.x, 2, windowW - 2);
+		p.pos.y = clamp(p.pos.y, 2, windowH - 2);
+		p.vel_smooth = p.vel_smooth * 0.95 + p.vel * 0.5;
 	}
 }
 
@@ -249,7 +253,7 @@ void draw()
 				assert(0);
 		}
 		// sdlr.SDL_RenderFillRectF(new SDL_FRect(p.pos.x - 4, p.pos.y - 4, 8, 8));
-		sdlr.SDL_RenderCopyF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16));
+		sdlr.SDL_RenderCopyExF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16), p.vel_smooth.angleTo(Point(-1, 0)) * 180 / PI, null, 0);
 		// sdlr.SDL_RenderCopyF(tex, null, new SDL_FRect(p.pos.x - 8, p.pos.y - 8, 16, 16));
 	}
 
