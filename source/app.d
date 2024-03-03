@@ -7,6 +7,9 @@ import std.conv;
 import std.math;
 import std.datetime.stopwatch;
 import std.concurrency;
+import std.functional;
+import std.traits;
+import std.range;
 
 /// Exception for SDL related issues
 class SDLException : Exception
@@ -25,12 +28,22 @@ enum RPS
 	SCISSORS
 }
 
-real normdist(T)(T x, const real s = 1, const T m = 0) pure
+real normdist(real s = 1, real m = 0, T)(T x) pure
 {
-	const real mult = 1 / (s * sqrt(2 * PI));
+	immutable real fact = 1 / (s * sqrt(2 * PI));
 	real p = (x-m)/s;
-	return mult * exp((p * p) / -2);
+	return fact * exp((p * p) / -2);
 }
+
+ReturnType!fun[] buildLUT(alias fun, R)(R range) {
+	ReturnType!fun[] ret = [];
+	foreach(i; range) {
+		ret ~= fun(i);
+	}
+	return ret;
+}
+
+static immutable normdistLUT = buildLUT!(normdist!(100,0,int))(iota(4096));
 
 struct Point
 {
@@ -45,9 +58,6 @@ struct Point
 
 	real distance(Point p2 = Point(0, 0)) pure const
 	{
-		import std.numeric : euclideanDistance;
-
-		// return euclideanDistance([this.x, this.y], [p2.x, p2.y]);
 		auto dx = p2.x - this.x;
 		auto dy = p2.y - this.y;
 		return sqrt(dx * dx + dy * dy);
@@ -203,10 +213,9 @@ void tick()
 	foreach(ref p; particles)
 	{
 		Point f = Point(0, 0);
-		f.movePolar(uniform01() * 2 * PI, uniform01() * 0.4);
+		// f.movePolar(uniform01() * 2 * PI, uniform01() * 0.4);
 		f.x += 8 / pow(p.pos.x / 4, 2) - 8 / pow((windowW - p.pos.x) / 4, 2);
 		f.y += 8 / pow(p.pos.y / 4, 2) - 8 / pow((windowH - p.pos.y) / 4, 2);
-		// f.y -= gravity(0, p.y) + gravity(600, p.y);
 		Particle* nearest;
 		real nearest_dist;
 		foreach(ref p2; particles)
@@ -219,8 +228,6 @@ void tick()
 				nearest = &p2;
 				nearest_dist = dist;
 			}
-			// fx += gravity(p.x, p2.x) * (p.type == p2.type ? 1 : -0.5);
-			// fy += gravity(p.y, p2.y) * (p.type == p2.type ? 1 : -0.5);
 			// if(dist <= 300)
 				f.movePolar(p.pos.angle(p2.pos), gravity(p.pos, p2.pos) * (p.type == p2.type ? -0.9 : 1));
 		}
@@ -309,8 +316,10 @@ void draw()
 void heatmapWorker()
 {
 	ubyte[] data = new ubyte[(windowW / 8) * (windowH / 8) * 4];
+	auto sw = StopWatch(AutoStart.yes);
 	while(running)
 	{
+		sw.reset();
 		for(int x = 0; x < windowW / 8; x++) {
 			for(int y = 0; y < windowH / 8; y++) {
 				int di = (y * (windowW / 8) + x) * 4;
@@ -318,10 +327,10 @@ void heatmapWorker()
 				for(int i = 0; i < N_PARTICLES; i++) {
 					Particle p = particles[i];
 					// s[p.type] += 5 * 255 * normdist!real(p.pos.distance(Point(x * 8, y * 8)), 100);
-					data[di + 1 + p.type] += (800 * normdist(1+p.pos.distance(Point(x * 8, y * 8)), 100)).to!int;
+					data[di + 2 - p.type] += (800 * normdistLUT[(p.pos.distance(Point(x * 8, y * 8))).to!int]).to!int;
 					// data[di+0] = 0;
-					// data[di+1] = 255;
-					// data[di+2] = 0;
+					// data[di+1] = 0;
+					// data[di+2] = 255;
 					data[di+3] = 255;
 				}
 			}
@@ -332,6 +341,7 @@ void heatmapWorker()
 			writeln(SDL_GetError().fromStringz);
 			throw new SDLException();
 		}
+		writefln!"heatmap %d msecs"(sw.peek.total!"msecs");
 	}
 }
 
