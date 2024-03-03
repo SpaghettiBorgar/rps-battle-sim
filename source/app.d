@@ -6,6 +6,7 @@ import std.random;
 import std.conv;
 import std.math;
 import std.datetime.stopwatch;
+import std.concurrency;
 
 /// Exception for SDL related issues
 class SDLException : Exception
@@ -98,10 +99,12 @@ struct Particle
 	Point vel_smooth = Point(0, 0);
 }
 
+immutable size_t N_PARTICLES = 250;
+
 SDL_Renderer* sdlr;
-bool running;
-int windowW;
-int windowH;
+__gshared bool running;
+__gshared int windowW;
+__gshared int windowH;
 int mouseX;
 int mouseY;
 bool mouseL;
@@ -109,7 +112,9 @@ bool mouseM;
 bool mouseR;
 ubyte* keystates;
 ushort keymods;
-Particle[] particles;
+__gshared Particle[N_PARTICLES] particles;
+__gshared SDL_Surface* heatmap_surf;
+Tid heatmap_thread;
 
 SDL_Texture* rock_tex;
 SDL_Texture* paper_tex;
@@ -159,6 +164,8 @@ void main()
 
 	init();
 
+	heatmap_thread = spawn(&heatmapWorker);
+
 	auto sw = StopWatch(AutoStart.yes);
 	running = true;
 	while (running)
@@ -178,10 +185,9 @@ void init()
 {
 	auto rnd = MinstdRand0();
 
-	particles = [];
-	foreach(i; 0..250)
+	foreach(i; 0..N_PARTICLES)
 	{
-		particles ~= Particle(rnd.uniform!RPS, Point(uniform01() * windowW, uniform01() * windowH), Point(0, 0), Point(0, 0));
+		particles[i] = Particle(rnd.uniform!RPS, Point(uniform01() * windowW, uniform01() * windowH), Point(0, 0), Point(0, 0));
 	}
 }
 
@@ -284,19 +290,49 @@ void draw()
 	sdlr.SDL_SetRenderDrawColor(255, 0, 0, 255);
 	sdlr.SDL_RenderFillRect(new SDL_Rect(4 + 20 * 2, windowH - 22 - nscissors, 16, nscissors));
 
-	real[3] s;
-	for(int x = 0; x < windowW / 8; x++) {
-		for(int y = 0; y < windowH / 8; y++) {
-			s = [0, 0, 0];
-			foreach(p; particles) {
-				s[p.type] += 5 * 255 * normdist!real(p.pos.distance(Point(x * 8, y * 8)).to!int, 100);
-			}
-			sdlr.SDL_SetRenderDrawColor(s[0].to!ubyte, s[1].to!ubyte, s[2].to!ubyte, 255);
-			sdlr.SDL_RenderDrawPoint(x + 62, windowH - windowH / 8 - 0 + y);
+	static SDL_Texture* heatmap_tex;
+
+	if(heatmap_tex !is null && heatmap_surf !is null) {
+		heatmap_tex.SDL_UpdateTexture(null, heatmap_surf.pixels, heatmap_surf.pitch);
+		if(sdlr.SDL_RenderCopy(heatmap_tex, null, new SDL_Rect(62, windowH - windowH / 8, windowW / 8, windowH / 8)) < 0) {
+			throw new SDLException();
 		}
+	
+		// SDL_DestroyTexture(heatmap_tex);
+	} else if (heatmap_surf !is null) {
+		heatmap_tex = sdlr.SDL_CreateTextureFromSurface(heatmap_surf);
 	}
 
 	sdlr.SDL_RenderPresent();
+}
+
+void heatmapWorker()
+{
+	ubyte[] data = new ubyte[(windowW / 8) * (windowH / 8) * 4];
+	while(running)
+	{
+		for(int x = 0; x < windowW / 8; x++) {
+			for(int y = 0; y < windowH / 8; y++) {
+				int di = (y * (windowW / 8) + x) * 4;
+				(cast(uint*) data)[di / 4] = 0;
+				for(int i = 0; i < N_PARTICLES; i++) {
+					Particle p = particles[i];
+					// s[p.type] += 5 * 255 * normdist!real(p.pos.distance(Point(x * 8, y * 8)), 100);
+					data[di + 1 + p.type] += (800 * normdist(1+p.pos.distance(Point(x * 8, y * 8)), 100)).to!int;
+					// data[di+0] = 0;
+					// data[di+1] = 255;
+					// data[di+2] = 0;
+					data[di+3] = 255;
+				}
+			}
+		}
+		if(heatmap_surf is null)
+			heatmap_surf = SDL_CreateRGBSurfaceFrom(cast(void*) data, windowW / 8, windowH / 8, 32, (windowW / 8) * 4, 0xFF << 0, 0xFF << 8, 0xFF << 16, 0xFF << 24);
+		if(heatmap_surf is null) {
+			writeln(SDL_GetError().fromStringz);
+			throw new SDLException();
+		}
+	}
 }
 
 void pollEvents()
